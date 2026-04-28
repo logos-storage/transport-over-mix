@@ -31,7 +31,6 @@ genericHMac256 :: Hash256 -> Key -> Message -> Word256
 genericHMac256 hashfun (Key key) msg = outer where
 
   outer = hashfun (key_xor_opad ++ toBytesBE inner)
-
   inner = hashfun (key_xor_ipad ++ msg)
 
   key_xor_opad = zipWith xor key' opad
@@ -44,6 +43,6 @@ genericHMac256 hashfun (Key key) msg = outer where
 --------------------------------------------------------------------------------
 
 genericHMac128 :: Hash256 -> Key -> Message -> Word128
-genericHMac128 hashfun key msg = fst $ split128 $ genericHMac256 hashfun key msg
+genericHMac128 hashfun key msg = truncate128 $ genericHMac256 hashfun key msg
 
 --------------------------------------------------------------------------------

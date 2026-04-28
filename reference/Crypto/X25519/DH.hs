@@ -17,23 +17,10 @@ import System.Random
 
 import Octet
 
---------------------------------------------------------------------------------
-
-sanityDiffieHellman :: IO ()
-sanityDiffieHellman = do
-  alice <- randomKeyPair
-  bob   <- randomKeyPair
-  putStrLn $ "Alice: " ++ show alice
-  putStrLn $ "Bob:   " ++ show bob
-  let sharedAlice = scalarMul (secretKeyToInteger $ fst alice) (pubKeyToGroup $ snd bob  )
-  let sharedBob   = scalarMul (secretKeyToInteger $ fst bob  ) (pubKeyToGroup $ snd alice)
-  putStrLn $ "shared secret of Alice = " ++ show (xcoordAsWordLE sharedAlice)
-  putStrLn $ "shared secret of Bob   = " ++ show (xcoordAsWordLE sharedBob  )
-  print (sharedAlice == sharedBob)
 
 --------------------------------------------------------------------------------
 
--- | 32 bytes, little-endian
+-- | 32 bytes, little-endian (@X = x/z@ coordinate of the curve point)
 newtype PubKey 
   = PK Word256
   deriving (Eq,Show,IsWord)
@@ -43,12 +30,40 @@ newtype SecretKey
   = SK Word256
   deriving (Eq,Show,IsWord)
 
-xcoordAsWordLE :: G -> Word256
-xcoordAsWordLE pt = fromIntegerLE (xcoordAsInteger pt)
+fromPubKey :: PubKey -> Word256
+fromPubKey (PK word) = word
+
+fromSecretKey :: SecretKey -> Word256
+fromSecretKey (SK word) = word
+
+pubKeyBytes :: PubKey -> [Word8]
+pubKeyBytes = fromWord256 . fromPubKey
+
+secretKeyBytes :: SecretKey -> [Word8]
+secretKeyBytes = fromWord256 . fromSecretKey
+
+--------------------------------------------------------------------------------
 
 secretKeyToPubKey :: SecretKey -> PubKey
 secretKeyToPubKey sk = pubKeyFromGroup g where
   g = scalarMul (secretKeyToInteger sk) basePoint
+
+diffieHellmanSharedSecret :: SecretKey -> PubKey -> Word256
+diffieHellmanSharedSecret sk pk 
+  = xcoordAsWordLE 
+  $ scalarMul (secretKeyToInteger sk) (pubKeyToGroup pk)
+
+-- | Multiply the secret key by an integer (modulo Q).
+-- Note: the result does not necessarily satisfy the masking properties; however
+-- at least it should remain in the cofactor 8 subgroup, which is the important part (I think...).
+blindSecretKey :: Integer -> SecretKey -> SecretKey
+blindSecretKey factor sk = secretKeyFromInteger (fromFq product) where
+  product = toFq factor * toFq (secretKeyToInteger sk)
+
+blindPublicKey :: Integer -> PubKey -> PubKey
+blindPublicKey factor pk = pubKeyFromGroup (scalarMul factor $ pubKeyToGroup pk)
+
+--------------------------------------------------------------------------------
 
 -- | Clear bits 0, 1, 2 of the first byte, clear bit 7 of the last
 -- byte, and set bit 6 of the last byte. (NOTE: it's all little-endian!)
@@ -71,6 +86,9 @@ randomKeyPair = do
   let pk = secretKeyToPubKey sk
   return (sk,pk)
 
+xcoordAsWordLE :: G -> Word256
+xcoordAsWordLE pt = fromIntegerLE (xcoordAsInteger pt)
+
 --------------------------------------------------------------------------------
 
 pubKeyToGroup :: PubKey -> G
@@ -90,5 +108,19 @@ pubKeyFromInteger n = PK (fromIntegerLE n)
 
 secretKeyFromInteger :: Integer -> SecretKey 
 secretKeyFromInteger n = SK (fromIntegerLE n)
+
+--------------------------------------------------------------------------------
+
+sanityCheckDiffieHellman :: IO ()
+sanityCheckDiffieHellman = do
+  alice <- randomKeyPair
+  bob   <- randomKeyPair
+  putStrLn $ "Alice: " ++ show alice
+  putStrLn $ "Bob:   " ++ show bob
+  let sharedAlice = scalarMul (secretKeyToInteger $ fst alice) (pubKeyToGroup $ snd bob  )
+  let sharedBob   = scalarMul (secretKeyToInteger $ fst bob  ) (pubKeyToGroup $ snd alice)
+  putStrLn $ "shared secret of Alice = " ++ show (xcoordAsWordLE sharedAlice)
+  putStrLn $ "shared secret of Bob   = " ++ show (xcoordAsWordLE sharedBob  )
+  print (sharedAlice == sharedBob)
 
 --------------------------------------------------------------------------------

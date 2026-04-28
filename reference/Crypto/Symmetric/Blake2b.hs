@@ -4,7 +4,7 @@
 -- See <https://datatracker.ietf.org/doc/html/rfc7693>
 
 {-# LANGUAGE BangPatterns, TypeApplications, FlexibleInstances, NumericUnderscores #-}
-module Ref.Blake2.BLAKE2b where
+module Crypto.Symmetric.Blake2b where
 
 --------------------------------------------------------------------------------
 

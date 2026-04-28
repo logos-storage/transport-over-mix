@@ -1,4 +1,8 @@
 
+-- | Dealing with byte sequences
+--
+-- (TODO: refactor this to something nicer...)
+
 {-# LANGUAGE ScopedTypeVariables, TypeApplications #-}
 module Octet where
 
@@ -38,12 +42,12 @@ fromIntegerBE = fromBytes . bytesFromIntegerBE (vecLength (Proxy @a))
 
 --------------------------------------------------------------------------------
 
--- | 128-bit words, stored in Big-Endian order!
+-- | 128-bit words, stored as bytes in Big-Endian order!
 newtype Word128 
   = W128 [Word8]
   deriving Eq
 
--- | 256-bit words, stored in Big-Endian order!
+-- | 256-bit words, stored as bytes in Big-Endian order!
 newtype Word256 
   = W256 [Word8]
   deriving Eq
@@ -54,11 +58,11 @@ fromWord128 (W128 bs) =bs
 fromWord256 :: Word256 -> [Word8]
 fromWord256 (W256 bs) = bs
 
-instance Show Word128 where show (W128 bs) = showBytes bs
-instance Show Word256 where show (W256 bs) = showBytes bs
+instance Show Word128 where show (W128 bs) = showHexBytes bs
+instance Show Word256 where show (W256 bs) = showHexBytes bs
 
-stringToByteList :: String -> [Word8]
-stringToByteList = map readByte . splitString where
+hexStringToByteList :: String -> [Word8]
+hexStringToByteList = map readByte . splitString where
 
   readByte :: String -> Word8
   readByte [a,b] = read ("0x" ++ [a,b])
@@ -66,24 +70,30 @@ stringToByteList = map readByte . splitString where
   splitString :: String -> [String]
   splitString []         = []
   splitString (a:b:rest) = [a,b] : splitString rest
-  splitString [_]        = error "stringToByteList: odd length"
+  splitString [_]        = error "hexStringToByteList: odd length"
 
-stringToWord128 :: String -> Word128
-stringToWord128 str 
+hexStringToWord128 :: String -> Word128
+hexStringToWord128 str 
   | length bs == 16  = W128 bs
-  | otherwise        = error "stringToWord128: expecting 32 hex characters"
+  | otherwise        = error "hexStringToWord128: expecting 32 hex characters"
   where
-    bs = stringToByteList str
+    bs = hexStringToByteList str
 
-stringToWord256 :: String -> Word256
-stringToWord256 str 
+hexStringToWord256 :: String -> Word256
+hexStringToWord256 str 
   | length bs == 32  = W256 bs
-  | otherwise        = error "stringToWord256: expecting 64 hex characters"
+  | otherwise        = error "hexStringToWord256: expecting 64 hex characters"
   where
-    bs = stringToByteList str
+    bs = hexStringToByteList str
 
 --------------------------------------------------------------------------------
 -- TODO: make this nicer...
+
+zero128 :: Word128
+zero128 = W128 (replicate 16 0)
+
+zero256 :: Word256
+zero256 = W256 (replicate 32 0)
 
 xor128 :: Word128 -> Word128 -> Word128
 xor128 (W128 as) (W128 bs) = W128 (zipWith xor as bs)
@@ -114,6 +124,9 @@ rnd128 = W128 <$> replicateM 16 randomIO
 
 rnd256 :: IO Word256
 rnd256 = W256 <$> replicateM 32 randomIO 
+
+truncate128 :: Word256 -> Word128
+truncate128 = fst . split128
 
 --------------------------------------------------------------------------------
 
@@ -186,20 +199,23 @@ bytesFromIntegerBE len x = reverse (bytesFromIntegerLE len x)
 
 --------------------------------------------------------------------------------
 
-showBytes :: [Word8] -> String
-showBytes bs = concat [ printf "%02x" b | b <- bs ]
+showHexBytes :: [Word8] -> String
+showHexBytes bs = concat [ printf "%02x" b | b <- bs ]
 
 toHexStringLE :: IsWord a => a -> String
-toHexStringLE = showBytes . toBytesLE
+toHexStringLE = showHexBytes . toBytesLE
 
 toHexStringBE :: IsWord a => a -> String
-toHexStringBE = showBytes . toBytesBE
+toHexStringBE = showHexBytes . toBytesBE
 
 ord8 :: Char -> Word8
 ord8 = fromIntegral . ord
 
 chr8 :: Word8 -> Char
 chr8 = chr . fromIntegral
+
+randomBytes :: Int -> IO [Word8]
+randomBytes len = replicateM len randomIO
 
 --------------------------------------------------------------------------------
 

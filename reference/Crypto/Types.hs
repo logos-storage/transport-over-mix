@@ -20,9 +20,12 @@ newtype IV
 
 -- | Message authentication code (128 bits)
 newtype MAC
-  = Mac Word128
+  = MAC Word128
   deriving (Eq,Show)
 
 type Message = [Word8]
 
 --------------------------------------------------------------------------------
+
+macBytes :: MAC -> [Word8]
+macBytes (MAC w) = fromWord128 w
