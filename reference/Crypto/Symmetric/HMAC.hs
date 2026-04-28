@@ -28,7 +28,7 @@ type Hash256 = ([Word8] -> Word256)
 --------------------------------------------------------------------------------
 
 genericHMac256 :: Hash256 -> Key -> Message -> Word256
-genericHMac256 hashfun (Key key) msg = outer where
+genericHMac256 hashfun (Key key128) msg = outer where
 
   outer = hashfun (key_xor_opad ++ toBytesBE inner)
   inner = hashfun (key_xor_ipad ++ msg)
@@ -36,7 +36,23 @@ genericHMac256 hashfun (Key key) msg = outer where
   key_xor_opad = zipWith xor key' opad
   key_xor_ipad = zipWith xor key' ipad
 
-  key' = toBytesBE key ++ replicate 48 0      -- pad with zeros to block size (= 64 bytes)
+  key' = toBytesBE key128 ++ replicate 48 0      -- pad with zeros to block size (= 64 bytes)
+  opad = replicate 64 0x5c
+  ipad = replicate 64 0x36
+
+----------------------------------------
+
+-- | same as above, but with a 256 bit key
+genericHMac256' :: Hash256 -> Key256 -> Message -> Word256
+genericHMac256' hashfun (Key256 key256) msg = outer where
+
+  outer = hashfun (key_xor_opad ++ toBytesBE inner)
+  inner = hashfun (key_xor_ipad ++ msg)
+
+  key_xor_opad = zipWith xor key' opad
+  key_xor_ipad = zipWith xor key' ipad
+
+  key' = toBytesBE key256 ++ replicate 32 0      -- pad with zeros to block size (= 64 bytes)
   opad = replicate 64 0x5c
   ipad = replicate 64 0x36
 

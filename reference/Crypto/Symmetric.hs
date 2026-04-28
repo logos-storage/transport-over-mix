@@ -98,26 +98,32 @@ keyedHash which (Key key) input = case which of
   KeyedHash_HMAC_SHA256     -> HMac.genericHMac256 (hash SHA256) (Key key) input
   KeyedHash_Blake2b         -> error "not implemented: KeyedHash_Blake2b"
 
+keyedHash256 :: KeyedHash -> Key -> [Word8] -> Word256
+keyedHash256 which (Key key) input = case which of
+  KeyedHash_SHA256_Prepend  -> SHA256.sha256 (fromWord128 key ++ input) 
+  KeyedHash_HMAC_SHA256     -> HMac.genericHMac256 (hash SHA256) (Key key) input
+  KeyedHash_Blake2b         -> error "not implemented: KeyedHash_Blake2b"
+
 hmac :: HMAC -> Key -> [Word8] -> MAC
 hmac (HMAC128 hashfun) key msg = MAC $ HMac.genericHMac128 (hash hashfun) key msg
 
-streamCipherEncrypt :: StreamCipher -> Key -> IV -> [Word128] -> [Word128]
-streamCipherEncrypt cipher = case cipher of
+streamCipherEncryptBlocks :: StreamCipher -> Key -> IV -> [Word128] -> [Word128]
+streamCipherEncryptBlocks cipher = case cipher of
   AES128_CTR -> AES128.encrypt_AES128CTR
   ChaCha20   -> error "not implemented: ChaCha20"
 
-streamCipherDecrypt :: StreamCipher -> Key -> IV -> [Word128] -> [Word128]
-streamCipherDecrypt cipher = case cipher of
+streamCipherDecryptBlocks :: StreamCipher -> Key -> IV -> [Word128] -> [Word128]
+streamCipherDecryptBlocks cipher = case cipher of
   AES128_CTR -> AES128.decrypt_AES128CTR
   ChaCha20   -> error "not implemented: ChaCha20"
 
-streamCipherPRG :: StreamCipher -> Key -> IV -> [Word128]
-streamCipherPRG cipher = case cipher of
+streamCipherPRGBlocks :: StreamCipher -> Key -> IV -> [Word128]
+streamCipherPRGBlocks cipher = case cipher of
   AES128_CTR -> AES128.stream_AES128CTR
   ChaCha20   -> error "not implemented: ChaCha20"
 
 streamCipherPRGBytes :: StreamCipher -> Key -> IV -> [Word8]
-streamCipherPRGBytes cipher key iv = concatMap fromWord128 (streamCipherPRG cipher key iv)
+streamCipherPRGBytes cipher key iv = concatMap fromWord128 (streamCipherPRGBlocks cipher key iv)
 
 streamCipherXorBytes :: StreamCipher -> Key -> IV -> [Word8] -> [Word8]
 streamCipherXorBytes cipher key iv input = zipWith xor input (streamCipherPRGBytes cipher key iv)
