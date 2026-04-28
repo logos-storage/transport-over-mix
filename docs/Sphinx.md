@@ -11,6 +11,8 @@ Sphinx is concrete packet format for mixnets, with the following goals:
 
 The main trick Sphinx achieves compactness is re-using a single public key (via a blinding mechanism) for each leg.
 
+In this note we describe the Sphinx packet format as specified in the 2009 paper "Sphinx: A Compact and Provably Secure Mix Format" by George Danezis and Ian Goldberg. In a separate document we will propose some modifications.
+
 #### Links
 
 - the [Sphinx paper](https://cypherpunks.ca/~iang/pubs/Sphinx_Oakland09.pdf)
@@ -18,7 +20,7 @@ The main trick Sphinx achieves compactness is re-using a single public key (via 
 
 ### Security parameters
 
-We denote the intended security level by $\lambda$ as usual. By default we target $\lambda=128$ bits of     security. Hence:
+We denote the intended security level by $\lambda$ as usual (instead of $\kappa$ as in the paper). By default we target $\lambda=128$ bits of security. Hence:
 
 - private keys are of size $p = 2\lambda$, that is, 32 bytes
 - as we use elliptic curve groups, public keys are the same size
@@ -37,10 +39,10 @@ The standard curve choice is [Curve25519](https://en.wikipedia.org/wiki/Curve255
 
 #### Symmetric primitives
 
-- we will need a MAC; the standard choice is HMAC-SHA256 truncated to $\lambda=128$ bits
+- we will need a MAC; a standard choice is HMAC-SHA256 truncated to $\lambda=128$ bits
 - we will need a (set of) key derivation function(s) $\mathsf{KDF}$. A standard choice is SHA256 with a domain separation; eg. $\mathsf{KDF}_{\mathsf{MAC}}(x):=H(\texttt{"MAC"}\|x)$, truncated as necessary
 - we need a pseudo-random stream generator, which will be used to encrypt the routing information. Usually this is AES128-CTR (that is, AES in [counter mode](https://en.wikipedia.org/wiki/Block_cipher_mode_of_operation#CTR)), but it could be also a XOF like SHAKE128. Below we will denote this by $\mathsf{XOF}(k)$ where $k$ is the key.
-- we also need a pseudo-random permutation (sometimes called a "large block cipher") to encrypt the payload. In particular, one **SHOULD NOT USE** a standard block cipher in counter mode for this. Note: This is kind of tricky, see more about this below.
+- we also need a pseudo-random permutation (sometimes called a "large block cipher") to encrypt the payload. In particular, one **SHOULD NOT USE** a standard block cipher in counter mode for this. Note: This is kind of tricky, see more about this below. The default choice for the PRP is Lioness (built on various primitives, for example: the original Lioness paper used SHA1 + SEAL; many implementation use Blake2b + ChaCha20; and of course one could also use SHA256 + AES128).
  
 Remark: While this is what the original Sphinx paper needs, there may be tweaks of the design, using more modern symmetric primitives, eg. AEAD to replace the problematic pseudo-random permutation. See below, near the bottom.
 
@@ -74,10 +76,12 @@ The user first generates an ephemeral secret key $x$; in practice this is just a
 
 Remark: The blinding factor is supposed to be in $\mathbb{Z}_q^\times$ (recall that $q\approx 2^{256}$). We can ensure this either by simply taking it modulo $q$, or more properly by rejection sampling a deterministic sequence. Implementations however usually simply say $b_i:=H(\alpha_i,s_i)$ where $H$ is eg. SHA256. Same care should be taken in an actual implementation to avoid possible corner cases.
 
+Remark \#2: With X25519, not all scalar field elements are valid secret keys. However, we cannot simply apply the standard "masking" algorithm to the  blinded private key, because the mix nodes doing the processing won't have access to the secret keys... At least the cofactor 8 subgroup is kept invariant by multiplication. I think that the remaining of the mask is to ensure uniformity of random secret keys. So this is probably still OK at the end.
+
 The key sequence is defined iteratively:
 
 - $x_0:=x$
-- $x_{i+1}:=b_i\cdot x_i$
+- $x_{i+1}:=\mathsf{mask}(b_i\cdot x_i)$
 
 All the rest can be computed from $x_i$:
 
@@ -88,6 +92,19 @@ All the rest can be computed from $x_i$:
 The idea behind this construction is that each hop will have a unique sender public key, from which a shared secret can be derived, and then further symmetric keys for MAC and encryption via a KDF. When composing the forwarded packet for the next hop, the node can then "tweak" this public key using their own blinding factor: $\alpha_{i+1}=b_i * \alpha_i$. 
 
 Thus each hop can only decrypt their own header, and if they try to break the protocol, the message will be ruined.
+
+#### Size of a mix header
+
+The size of the mix header must be constant (otherwise, mix nodes could guess where they are in the path), and its processing uniform (except for the final hop).
+
+With the usual parameters, we have $|\alpha|=32$ and $|\gamma|=16$. Thus $N_\beta:=|\beta|$ determines the header size. This must be big enough to fit $(r-1)$ mix node addresses $A_i$, and also $(r-1)$ MACs $\gamma_i$ (both are the set $i>0)$, and the destination address and message id pair $(\Delta,J)$.
+
+In the original Sphinx paper, we have
+
+- $|A_i|=|\gamma_i|=|J|=\lambda$
+- $|\Delta|=2\lambda$
+
+However, after careful consideration, one can see that in fact there isn't any restriction on these sizes, in fact they could be even non-uniform (except that that would break our goal stated above). So in the paper we have $N_\beta = 2(r-1)\lambda + 3\lambda =(2r+1)\lambda$, but instead of counting all these $\lambda$ factors, it's _much easier_ to think about a fixed $N_\beta$ which is big enough to fit what we want it to encode.
 
 #### Fillers (header padding)
 
@@ -104,13 +121,16 @@ $$
 \begin{align*}
   e_i &:= \mathsf{KDF}(\texttt{"route-enc-key"}\|s_i) \\
   \widetilde\phi_{i+1} &:= [\,\phi_i \;\|\; 0^{2\lambda}\,] \\
-  \phi_{i+1} &:= \widetilde\phi_{i+1} \;\oplus\; \mathsf{XOF}(e_i)_{\rho\dots \rho+2\lambda (i+1)}
+  \phi_{i+1} &:= \widetilde\phi_{i+1} \;\oplus\; \mathsf{XOF}(e_i)_{(N_\beta-|\phi_i|\dots N_\beta+2\lambda)} = \mathsf{encdec}_i^\rho (\widetilde\phi_{i+1})
 \end{align*}
 $$
 
-where the offset is $\rho = (2r+3)\lambda - 2\lambda (i+1)$. Note: We use the convention that a tilde denotes the unencrypted version.
+where the starting offset in the PRG stream is $\rho_{i+1} = N_\beta- |\phi_i|$. Note: We use the convention that a tilde denotes the unencrypted version. Here $2\lambda=|A_{i+1}|+|\gamma_{i+1}|$ comes from the mix node address $A_{i+1}$ and MAC $\gamma_{i+1}$
 
-One reason for all this complication is that the headers are constructed _backwards_, but the fillers must be constructed _forwards_. Furthermore, we also need to replace truncated bits while processing and forwarding mix packets; that's why we have the $2\lambda$ zero bits at the end (it could be any constant, zero is just the simplest).
+One reason for all this complication is that the headers are constructed _backwards_, but the fillers must be constructed _forwards_. More importantly, we also need to replace the truncated bits while processing and forwarding mix packets; that's why we have the $2\lambda$ zero bits at the end (it could be any constant, zero is just the simplest). Note that this replacement must reconstruct the header sequence exactly, otherwise the MACs won't match!
+
+Note that we use the key $e_i$ to encrypt $\phi_{i+1}$! This is a subtle but important point. The reason is that the $i$-th node must reconstruct it before forwarding to the $i+1$-th node, and they only know their own key $e_i$.
+
 
 #### Constructing the header
 
@@ -120,10 +140,10 @@ Sidenote: In the paper these headers are denoted by $M_i$, but that's a bit conf
 
 Apart from the mix path, we also require a destination address $\Delta$, and message identifier $J\in\{0,1\}^\lambda$. These are only used in replies ($\Delta$ would be our address, and $J$ is to identify the reply among several); they don't seem to play a role in forward messages (apart from detecting being the exit node). The destination $\Delta$ must fit into $2\lambda (r-\ell+1)$ bits; for $r=\ell$ this means $2\lambda$ (32 bytes), and to simplify we will assume that, ie. $\Delta\in\{0,1\}^{2\lambda}$.
 
-Remark: In the Logos implementation, $\Delta$ is actually somewhat bigger (but still bounded), ~~48~~ 96 bytes (?). It's relatively straightforward to generalize this construction to allow for that (though 96 bytes instead of 16 is very wasteful, as it's get multiplied by the maximum number of hops $r=5%...).
+Remark: In the current Logos implementation, $|\Delta|=|A_i|$ is actually somewhat bigger (but still bounded), ~~48~~ 96 bytes (?). It's relatively straightforward to generalize this construction to allow for that (though 96 bytes instead of 16 is extremely wasteful, as it's get multiplied by the maximum number of hops $r=5$...).
 
-- $\alpha_i\in\mathbb{G}$ is just the per-hop public key computed above
-- $\beta_i \in \{0,1\}^{(2r+1)\lambda}$ is the layer-by-layer encrypted routing information
+- $\alpha_i\in\mathbb{G}\subset \{0,1\}^{2\lambda}$ is just the per-hop public key computed above
+- $\beta_i \in \{0,1\}^{N_\beta}$ is the layer-by-layer encrypted routing information
 - $\gamma_i \in \{0,1\}^\lambda$ is the MAC of $\beta_i$, computed with a mac key derived from the shared secret $s_i$
 
 Question: Why isn't $\alpha_i$ also included in the MAC? I guess it's not really necessary, as if $\alpha_i$ is tampered with, then decryption and everything else will fail?
@@ -132,23 +152,29 @@ We will need several symmetric keys, all of size $\lambda$; these are all derive
 
 - $m_i := \mathsf{KDF}(\texttt{"mac-key"}\;\|\;s_i)$ is the MAC key
 - $e_i := \mathsf{KDF}(\texttt{"route-enc-key"}\;\|\;s_i)$ is the key use to encrpytion the routing info 
-- $\mathrm{V}_i := \mathsf{KDF}(\texttt{"iv"}\;\|\;s_i)$ is the initialization vector (when using AES or some other block cipher as our PRG stream generator)
+- $\mathrm{V}_i := \mathsf{KDF}(\texttt{"route-enc-iv"}\;\|\;s_i)$ is the initialization vector (when using AES or some other block cipher as our PRG stream generator)
 
-Then we construct the headers iteratively:
+Let $\mathsf{encdec}_i(\widetilde X):= \widetilde X \oplus \mathsf{XOF}(e_i)$ be a XOR-based stream cipher with the encryption key $e_i$; and similarly $\mathsf{MAC_i}(X)$ is a message authentication code with key $m_i$.
 
-- $\widetilde\beta_{\ell-1} := [\,\Delta \;\|\; J \;\|\; 0^{2(r-\ell)\lambda} \;\|\; \widetilde{\phi}_{\ell-1} \,]$
-- $\widetilde\beta_{i-1}:= [\, A_i \;\|\; \gamma_i \;\|\; \mathsf{trunc}_{(2r-1)\lambda}(\beta_i) \,]$
-- $\beta_i := \widetilde\beta_i \oplus \mathsf{XOF}(e_i)$
-- $\gamma_i := \mathsf{MAC}_{m_i}(\beta_i)$
+Then we construct the headers iteratively, starting from the final hop:
+
+- $\widetilde \beta_{\ell-1} := ( \, \Delta \;\|\; J \;\|\; 0^{\textrm{pad}} \, )  \;\big\|\; \mathsf{encdec}^\rho_{\ell-1}(\phi_{\ell-1})$
+- $\beta_{\ell-1} := \mathsf{encdec}_{\ell-1}(\widetilde\beta_{\ell-1}) = \mathsf{encdec}_{\ell-1}( \, \Delta \;\|\; J \;\|\; 0^{\textrm{pad}} \, ) \;\big\|\; \phi_{\ell-1}$
+
+And then going backward:
+
+- $\widetilde\beta_{i}:= [\, A_{i+1} \;\|\; \gamma_{i+1} \;\|\; \mathsf{trunc}(\beta_i) \,]$
+- $\beta_i := \mathsf{encdec}_i(\widetilde\beta_i)$
+- $\gamma_i := \mathsf{MAC}_{i}(\beta_i)$
 
 where $A_i\in\{0,1\}^\lambda$ (only 16 bytes, unlike $\Delta$!) is the address of the $i$-th node in the path. Note: When computing $\beta_{i-1}$, the $\beta_i$ coming from the next hop is truncated (the last $2\lambda$ bits is discarded), so that's where the address and MAC fits in. This is not a problem because as we remove the layers, less and less routing information is required; the actual useful content of the final header is only $(\Delta,J)$.
 
-It's useful to have a picture of the sizes of the various components here:
+It's not that useful to have a picture of the sizes of the various components here (because it becomes much easier when abstracted away from these fixed sizes), in any case:
 
 - $|\Delta| = 2\lambda$
 - $|J| = |\gamma_i| = \lambda$
 - $|\phi_i| = 2\lambda i$
-- $|\beta_{\ell-1}| = 3\lambda + 2(r-1)\lambda = (2r+1)\lambda$
+- $|\beta_{\ell-1}| = 3\lambda + 2(r-1)\lambda = (2r+1)\lambda = N_\beta$
 - $|A_i| = \lambda$
 - $|\beta_i| = 2\lambda + (2r-1)\lambda = (2r+1)\lambda = |\beta_{\ell-1}|$
 
@@ -171,6 +197,8 @@ Now we can compute the encrypted payload iteratively:
 The final packet is $(\alpha_0,\beta_0,\gamma_0,\delta_0)$. 
 
 This has size $2\lambda+(2r+1)\lambda+\lambda+(3\lambda+N) = N + (2r+7)\lambda$. So for the default parameter $\lambda=128$ and $r=5$, the overhead is $17\times 16 = 272$ bytes (the header being $224$ bytes and the integrity check + destination $16+32 = 48$ bytes).
+
+Note that the payload encryption function $\mathsf{ENC}$ is (and in fact must be) very different from the routing encryption/decryption function $\mathsf{encdec}$!
 
 #### Creating a reply message
 
@@ -198,7 +226,7 @@ To compose a reply message using a SURB, the sender encrypts their payload $\mat
 Upon receiving a mix packet, a node should do the following:
 
 0. check the packet size to conform the expected fixed size, and split it into $(\alpha,\beta,\gamma,\delta)$
-1. check if the first 32 bytes correspond to a valid group element $\alpha\in\mathbb{G}$ (apparently this is a no-op for Curve25519)
+1. check if the first 32 bytes correspond to a valid group element $\alpha\in\mathbb{G}$ (apparently this is a no-op for Curve25519 in the "X=x/z" representation we use here)
 2. compute the shared secret $s = x*\alpha \in \mathbb{G}$, where $x\in \mathbb{Z}_q^\times$ is our long-term secret key 
 3. check if this shared secret was seen before by looking up it's hash $H(s)$ in a table we keep. Reject if it was seen before.
 4. recompute the MAC of $\beta$ using the derived MAC key $m_i=\mathsf{KDF}(\texttt{"mac-key"}\|s)$, and compare it with $\gamma$. Reject if they differ
