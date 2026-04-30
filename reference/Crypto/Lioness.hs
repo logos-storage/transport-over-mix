@@ -24,7 +24,7 @@ import Octet
 type ByteStream   = [Word8]
 type MasterKey    = Key256
 
-type KeyDerivFun256  = Key256 -> ByteStream
+type KeyDerivFun256  = Domain -> Key256  -> Word256
 type KeyedHashFun256 = Key256 -> [Word8] -> Word256
 type StreamGen256    = Key256 -> ByteStream
 
@@ -44,11 +44,10 @@ type LionessKeys = (Key256,Key256,Key256,Key256)
 
 lionessDeriveKeys :: LionessInstance -> MasterKey -> LionessKeys
 lionessDeriveKeys (MkLioness kdfFun _ _) masterKey = (k1,k2,k3,k4) where
-  [k1,k2,k3,k4] = map (Key256 . W256) $ partition 32 $ take 128 $ kdfFun masterKey
-
-  partition :: Int -> [a] -> [[a]]
-  partition m [] = []
-  partition m xs = take m xs : partition m (drop m xs)
+  k1 = Key256 (kdfFun LionessKey1 masterKey)
+  k2 = Key256 (kdfFun LionessKey2 masterKey)
+  k3 = Key256 (kdfFun LionessKey3 masterKey)
+  k4 = Key256 (kdfFun LionessKey4 masterKey)
 
 --------------------------------------------------------------------------------
 
@@ -109,13 +108,8 @@ lionessInvPerm inst@(MkLioness kdfFun hashFun streamFun) masterKey input
 
 --------------------------------------------------------------------------------
 
-twistIV :: IV -> IV
-twistIV (IV orig) = IV (orig `xor128` twist) where
-  twist = wordFromInteger 0x1234567890abcdef_aa55aa55aa55aa55
-
 testKdfFun :: KeyDerivFun256
-testKdfFun bigKey = case splitKey256 bigKey of 
-  (key,iv) ->  streamCipherPRGBytes AES128_CTR key (twistIV iv)
+testKdfFun domain (Key256 masterKey) = kdf256 KDF_SHA256 domain (fromWord256 masterKey)
 
 testHashFun :: KeyedHashFun256
 testHashFun (Key256 bigKey) input = hash SHA256 (fromWord256 bigKey ++ input)

@@ -50,6 +50,10 @@ data Domain
   | SphinxMacKey                -- ^ key for the MAC in the Sphinx header
   | SphinxPayloadEncKey         -- ^ key to encrypt the Sphinx payload
   | SphinxBlinding              -- ^ key to compute the blinding factor
+  | LionessKey1                 -- ^ K1 of Lioness
+  | LionessKey2                 -- ^ K2 of Lioness
+  | LionessKey3                 -- ^ K3 of Lioness
+  | LionessKey4                 -- ^ K4 of Lioness
   deriving (Eq,Show)
 
 -- | Key derivation functions
@@ -75,6 +79,10 @@ domainConstant domain =
     SphinxMacKey        -> asciiStringToWord128 "mac-key"
     SphinxPayloadEncKey -> asciiStringToWord128 "payload-enc-key"
     SphinxBlinding      -> asciiStringToWord128 "sphinx-blinding"
+    LionessKey1         -> asciiStringToWord128 "lioness-key1"
+    LionessKey2         -> asciiStringToWord128 "lioness-key2"
+    LionessKey3         -> asciiStringToWord128 "lioness-key3"
+    LionessKey4         -> asciiStringToWord128 "lioness-key4"
   where 
     asciiStringToWord128 :: String -> Word128
     asciiStringToWord128 input 
