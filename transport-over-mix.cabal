@@ -1,0 +1,60 @@
+Cabal-Version:        2.4
+Name:                 transport-over-mix
+Version:              0.1
+Synopsis:             Transport abstraction layer over Mix
+
+Description:          Reference implementation of a transport layer over Mix,
+                      including Sphinx packet format and SURBs
+
+License:              MIT OR Apache-2.0
+License-files:        LICENSE-MIT
+                      LICENSE-APACHE-v2
+
+Author:               Balazs Komuves
+Copyright:            (c) 2026 Logos
+Maintainer:           balazs (at) free (dot) technology
+
+Stability:            Experimental
+Category:             Cryptography
+Tested-With:          GHC == 9.12.1
+Build-Type:           Simple
+
+--------------------------------------------------------------------------------
+
+source-repository head
+  type:                git 
+  location:            https://github.com/logos-storage/transport-over-mix
+
+--------------------------------------------------------------------------------
+
+Library
+
+  Build-Depends:        base >= 4 && <5, 
+                        array >= 0.5 && < 0.6,
+                        random >= 1.3 && < 1.4,
+                        bytestring >= 0.12 && < 0.14,
+                        binary >= 0.8 && < 0.9
+
+  Exposed-Modules:      Sphinx.Header
+                        Crypto.Symmetric
+                        Crypto.Symmetric.AES128
+                        Crypto.Symmetric.Blake2b
+                        Crypto.Symmetric.HMAC
+                        Crypto.Symmetric.KeccakPerm
+                        Crypto.Symmetric.SHA256
+                        Crypto.X25519.BaseField
+                        Crypto.X25519.ScalarField
+                        Crypto.X25519.Elliptic
+                        Crypto.X25519.DH
+                        Crypto.Lioness
+                        Crypto.Types
+                        Octet
+
+  Default-Language:     Haskell2010
+  Default-Extensions:   BangPatterns, NumericUnderscores
+
+  Hs-Source-Dirs:       reference
+
+  ghc-options:          -fwarn-tabs -fno-warn-unused-matches -fno-warn-name-shadowing -fno-warn-unused-imports                        
+
+--------------------------------------------------------------------------------

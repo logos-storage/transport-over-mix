@@ -1,6 +1,7 @@
 
 -- | Public key cryptography (Diffie-Hellman) over X25519
 
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 module Crypto.X25519.DH where
 
 --------------------------------------------------------------------------------

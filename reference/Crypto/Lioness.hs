@@ -6,6 +6,7 @@
 -- * Ross Anderson and Eli Biham: "Two practical and provable secure block ciphers: BEAR and LION"
 --
 
+{-# LANGUAGE NumericUnderscores #-}
 module Crypto.Lioness where
 
 --------------------------------------------------------------------------------
