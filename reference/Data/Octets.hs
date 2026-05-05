@@ -4,7 +4,7 @@
 -- (TODO: refactor this to something nicer...)
 
 {-# LANGUAGE ScopedTypeVariables, TypeApplications #-}
-module Octet where
+module Data.Octets where
 
 --------------------------------------------------------------------------------
 

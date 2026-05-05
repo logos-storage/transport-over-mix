@@ -4,8 +4,9 @@
 -- See:
 --
 -- * George Danezis, Ian Goldberg: "Sphinx: A Compact and Provably Secure Mix Format"
+--   <https://cypherpunks.ca/~iang/pubs/Sphinx_Oakland09.pdf>
 --
--- <https://cypherpunks.ca/~iang/pubs/Sphinx_Oakland09.pdf>
+-- * see also the @docs@ subdirectory in this repo
 --
 
 {-# OPTIONS_GHC -Wno-x-partial #-}
@@ -34,7 +35,7 @@ import Crypto.X25519.ScalarField ( Fq , toFq )
 import Crypto.Symmetric
 import Crypto.Types
 
-import Octet
+import Data.Octets
 
 --------------------------------------------------------------------------------
 -- * global constants
@@ -43,12 +44,14 @@ import Octet
 maxNumberOfHops :: Int
 maxNumberOfHops = 5
 
+{-
 -- | Targeted security in bits = size of symmetric keys = size of MACs = half the size of private keys
 lambda :: Int
 lambda = 128
 
 lambdaBytes :: Int
 lambdaBytes = div lambda 8
+-}
 
 --------------------------------------------------------------------------------
 -- * crypto primitives
@@ -62,11 +65,9 @@ mixMAC = hmac (HMAC128 SHA256)
 mixPRG :: Key -> IV -> [Word8]
 mixPRG = streamCipherPRGBytes AES128_CTR 
 
-mixRouteEnc :: Key -> IV -> [Word8] -> [Word8]
-mixRouteEnc key iv input = zipWith xor input (mixPRG key iv)
+mixRouteEncDec :: Key -> IV -> [Word8] -> [Word8]
+mixRouteEncDec key iv input = zipWith xor input (mixPRG key iv)
 
-mixRouteDec :: Key -> IV -> [Word8] -> [Word8]
-mixRouteDec = mixRouteEnc
 
 --------------------------------------------------------------------------------
 -- * types
@@ -77,40 +78,42 @@ type SizeInBytes = Int
 -- | The actual number of hops. Can be less or equal to @maxNumberOfHops@.
 type NHops = Int
 
+{-
 -- | A destination address is usually outside the mix network. We represent it by
 -- a string (padded to a fixed length)
 type DestinationAddr = String
 
--- | A mix node address should be represented as a fixed length bytestring
-newtype MixAddr 
+-- | A compressed mix node address should be represented as a fixed length bytestring
+newtype ComprMixAddr 
   = MkMixAddr [Word8]
   deriving (Eq,Show)
 
 -- | A (random) message identifier, to identify replies. 
 type MessageId = Word128
 
--- | A mix node (extenal view) has a public key and an address
-data MixNodeExt = MkMixNodeExt
-  { nodePubKey  :: PubKey
-  , nodeAddress :: MixAddr
-  }
-  deriving (Eq,Show)
-
--- | Internally, a mix node also has a private key (required for processing)
-data MixNodeInt = MkMixNodeInt
-  { nodePrivKey :: SecretKey 
-  , nodeExt     :: MixNodeExt 
-  }
-  deriving (Eq,Show)
-
 data Address
   = ForwardDestination !DestinationAddr
   | ReplyDestination   !DestinationAddr
   | MixNode            !MixAddr
   deriving (Eq,Show)
+-}
+
+-- | A mix node (extenal view) has a public key and an address
+data MixNodeExt addr = MkMixNodeExt
+  { nodePubKey  :: PubKey
+  , nodeAddress :: addr
+  }
+  deriving (Eq,Show)
+
+-- | Internally, a mix node also has a private key (required for processing)
+data MixNodeInt addr = MkMixNodeInt
+  { nodePrivKey :: SecretKey 
+  , nodeExt     :: MixNodeExt addr 
+  }
+  deriving (Eq,Show)
 
 -- | A mix path is a route consisting of several mix nodes
-type MixPath = [MixNodeInt]
+type MixPath addr = [MixNodeInt addr]
 
 -- | A Sphinx header consists of three part, denoted (after the Sphinx paper) by alpha, beta, and gamma.
 data SphinxHeader = MkHeader
@@ -144,9 +147,9 @@ computeBlinder alpha sharedSecret = toIntegerLE blinder where
   blindInput  = pubKeyBytes alpha ++ fromWord256 sharedSecret :: [Word8]
   blinder     = hash SHA256 blindInput                        :: Word256 
 
-computePerHopSecrets :: SecretKey -> [MixNodeExt] -> [PerHopSecrets]
+computePerHopSecrets :: SecretKey -> [MixNodeExt addr] -> [PerHopSecrets]
 computePerHopSecrets initialSecret path = go initialSecret path where
-  go :: SecretKey -> [MixNodeExt] -> [PerHopSecrets]
+  go :: SecretKey -> [MixNodeExt addr] -> [PerHopSecrets]
   go _ []             = []
   go x (mixnode:rest) = this : go x' rest where
     alpha       = secretKeyToPubKey x                                :: PubKey
@@ -261,7 +264,7 @@ computeAllHeadersGeneric headerBetaSize hops
       macKey = Key (mixKDF SphinxMacKey      ss)
 
       encrypt :: [Word8] -> [Word8]
-      encrypt = mixRouteEnc encKey encIV
+      encrypt = mixRouteEncDec encKey encIV
 
       beta = case next of
         NextBeta  nextBeta nextGamma -> encrypt $ take headerBetaSize $ (route ++ nextGamma ++ nextBeta)
@@ -275,7 +278,7 @@ computeAllHeadersGeneric headerBetaSize hops
 --------------------------------------------------------------------------------
 -- * processing mix headers
 
-processMixHeaderGeneric :: Binary route => MixNodeInt -> SphinxHeader -> Either String (route, SphinxHeader)
+processMixHeaderGeneric :: Binary route => MixNodeInt addr -> SphinxHeader -> Either String (route, SphinxHeader)
 processMixHeaderGeneric mixNode (MkHeader alpha beta gamma) = 
   if gamma /= macBeta  
     then Left $ "MAC of beta doesn't match\n - header gamma = " ++ show gamma ++ "\n - MAC(beta)    = " ++ show macBeta
@@ -295,7 +298,7 @@ processMixHeaderGeneric mixNode (MkHeader alpha beta gamma) =
 
     betaSize  = length beta
     macBeta   = mixMAC macKey beta
-    betaTilde = mixRouteDec encKey encIV (beta ++ replicate betaSize 0)  -- we don't know yet how long "route" is, so just add enough zeros lol
+    betaTilde = mixRouteEncDec encKey encIV (beta ++ replicate betaSize 0)  -- we don't know yet how long "route" is, so just add enough zeros lol
 
     blinder = computeBlinder alpha shared
     alpha'  = blindPublicKey blinder alpha
@@ -303,13 +306,10 @@ processMixHeaderGeneric mixNode (MkHeader alpha beta gamma) =
 --------------------------------------------------------------------------------
 -- * generate random mix nodes 
 
-randomMixAddr :: Int -> IO MixAddr
-randomMixAddr len = MkMixAddr <$> replicateM len randomIO
-
-randomMixNode :: IO MixNodeInt
-randomMixNode = do
+randomMixNode' :: IO addr -> IO (MixNodeInt addr)
+randomMixNode' mkRndAddr = do
   (sk,pk) <- randomKeyPair
-  addr    <- randomMixAddr 16
+  addr    <- mkRndAddr -- randomMixAddr 16
   let nodeExt = MkMixNodeExt
        { nodePubKey  = pk
        , nodeAddress = addr
@@ -319,11 +319,18 @@ randomMixNode = do
     , nodeExt     = nodeExt
     }
 
-randomMixPath :: NHops -> IO [MixNodeInt]
-randomMixPath nhops = replicateM nhops randomMixNode
+randomMixPath' :: IO addr -> NHops -> IO [MixNodeInt addr]
+randomMixPath' mkRndAddr nhops = replicateM nhops (randomMixNode' mkRndAddr)
 
 --------------------------------------------------------------------------------
--- * testing
+-- * basic sanity check testing
+
+newtype TmpAddr 
+  = MkTmpAddr [Word8]
+  deriving (Eq,Show)
+
+randomTmpAddr :: Int -> IO TmpAddr
+randomTmpAddr len = MkTmpAddr <$> replicateM len randomIO
 
 data TestRouting 
   = A String
@@ -345,7 +352,7 @@ testRoute =
   , F "final destination"
   ]
 
-testProcess :: [MixNodeInt] -> SphinxHeader -> [TestRouting]
+testProcess :: [MixNodeInt TmpAddr] -> SphinxHeader -> [TestRouting]
 testProcess = go 0 where
   go idx []           _      = []
   go idx (node:nodes) header = case processMixHeaderGeneric node header of
@@ -358,7 +365,7 @@ testMain = do
   sk <- randomSecretKey
   let route = testRoute
   let nhops = length route
-  mixpath <- randomMixPath nhops
+  mixpath <- randomMixPath' (randomTmpAddr 16) nhops
   let perhopsecrets = computePerHopSecrets sk (map nodeExt mixpath)
 
   let headers = computeAllHeadersGeneric headerBetaSize (zip perhopsecrets route)

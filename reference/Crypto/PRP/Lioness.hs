@@ -7,17 +7,19 @@
 --
 
 {-# LANGUAGE NumericUnderscores #-}
-module Crypto.Lioness where
+module Crypto.PRP.Lioness where
 
 --------------------------------------------------------------------------------
 
 import Data.Bits
 import Data.Word
 
+import qualified Data.ByteString as B
+
 import Crypto.Symmetric     -- for testing only??
 
 import Crypto.Types
-import Octet
+import Data.Octets
 
 --------------------------------------------------------------------------------
 
@@ -65,6 +67,9 @@ xorWithKey :: Key256 -> [Word8] -> Key256
 xorWithKey (Key256 key) bytes = Key256 $ W256 $ xorBytes bytes (fromWord256 key)
 
 --------------------------------------------------------------------------------
+
+lionessPermBS :: LionessInstance -> Key256 -> B.ByteString -> B.ByteString
+lionessPermBS inst key = B.pack . lionessPerm inst key . B.unpack
 
 lionessPerm :: LionessInstance -> Key256 -> [Word8] -> [Word8]
 lionessPerm inst@(MkLioness kdfFun hashFun streamFun) masterKey input 

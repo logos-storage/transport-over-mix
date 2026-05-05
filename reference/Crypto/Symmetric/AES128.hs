@@ -16,7 +16,7 @@ import Data.Int
 
 -- import Text.Printf
 
-import Octet
+import Data.Octets
 import Crypto.Types
 
 --------------------------------------------------------------------------------

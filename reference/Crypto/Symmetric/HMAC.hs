@@ -9,7 +9,7 @@ import Data.Char
 
 import Crypto.Symmetric.SHA256
 
-import Octet
+import Data.Octets
 import Crypto.Types
 
 --------------------------------------------------------------------------------

@@ -16,8 +16,7 @@ import Crypto.X25519.Elliptic
 import Control.Monad
 import System.Random
 
-import Octet
-
+import Data.Octets
 
 --------------------------------------------------------------------------------
 

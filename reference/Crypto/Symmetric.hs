@@ -14,7 +14,7 @@ import qualified Crypto.Symmetric.Blake2b as Blake2b
 import qualified Crypto.Symmetric.HMAC    as HMac
 
 import Crypto.Types
-import Octet
+import Data.Octets
 
 --------------------------------------------------------------------------------
 

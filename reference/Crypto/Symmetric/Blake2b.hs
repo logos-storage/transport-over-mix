@@ -14,9 +14,11 @@ import Data.Bits
 import Data.Char
 import Data.List hiding (partition)
 
-import Octet
+import Data.Octets
 
 --------------------------------------------------------------------------------
+
+-- TODO: implement keyed version
 
 kk =  0       -- key bytes
 nn = 32       -- output bytes

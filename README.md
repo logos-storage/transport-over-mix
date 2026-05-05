@@ -7,7 +7,7 @@ a transport abstraction layer over the [Mix Protocol](https://lip.logos.co/ift-t
 The idea is to hide the packet size and other limitations of Mix behind a nice
 abstraction layer, so applications can pretend they are communicating over
 a "normal" network not unlike TCP (a very slow, and moderately reliable, 
-but otherwise pretty normally behaving network).
+but otherwise pretty normally behaving network socket).
 
-Furthermore, we also take the opportunity to document both the Sphinx mix packet 
-format, and SURBs (Single Use Reply Blocks).
+Furthermore, we also take the opportunity to document (including an executable
+specification) both the Sphinx mix packet format, and SURBs (Single Use Reply Blocks).

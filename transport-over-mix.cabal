@@ -29,26 +29,34 @@ source-repository head
 
 Library
 
-  Build-Depends:        base >= 4 && <5, 
+  Build-Depends:        base >= 4 && < 5, 
                         array >= 0.5 && < 0.6,
-                        random >= 1.3 && < 1.4,
+                        containers >= 0.7 && < 0.8,
                         bytestring >= 0.12 && < 0.14,
-                        binary >= 0.8 && < 0.9
+                        random >= 1.3 && < 1.4,
+                        binary >= 0.8 && < 0.9,
+                        hs-leopard >= 0.0.1 && < 0.0.3
 
   Exposed-Modules:      Sphinx.Header
+                        Transport.Protocol
+                        Transport.State
+                        Transport.EC
+                        Transport.Chunks
+                        Transport.Types
+                        Transport.Misc
                         Crypto.Symmetric
                         Crypto.Symmetric.AES128
                         Crypto.Symmetric.Blake2b
                         Crypto.Symmetric.HMAC
                         Crypto.Symmetric.KeccakPerm
                         Crypto.Symmetric.SHA256
+                        Crypto.PRP.Lioness
                         Crypto.X25519.BaseField
                         Crypto.X25519.ScalarField
                         Crypto.X25519.Elliptic
                         Crypto.X25519.DH
-                        Crypto.Lioness
                         Crypto.Types
-                        Octet
+                        Data.Octets
 
   Default-Language:     Haskell2010
   Default-Extensions:   BangPatterns, NumericUnderscores
