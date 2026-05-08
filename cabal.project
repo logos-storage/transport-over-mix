@@ -1,0 +1,9 @@
+packages: .
+
+source-repository-package
+  type: git
+  location: https://github.com/logos-storage/hs-leopard.git
+  tag: eaac469766e90083ed6edb9473c66337d8ceb68a
+
+package hs-leopard
+  ghc-options: -optcxx-mssse3
