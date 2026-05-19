@@ -6,4 +6,4 @@ dist-newstyle/
 *.o
 *.hi
 .ghc.environment*
-cabal.project
+cabal.project.local
