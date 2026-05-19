@@ -11,3 +11,10 @@ but otherwise pretty normally behaving network socket).
 
 Furthermore, we also take the opportunity to document (including an executable
 specification) both the Sphinx mix packet format, and SURBs (Single Use Reply Blocks).
+
+## Quick Start
+
+```bash
+cabal update
+cabal build
+```
