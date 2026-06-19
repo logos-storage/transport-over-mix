@@ -12,9 +12,18 @@ but otherwise pretty normally behaving network socket).
 Furthermore, we also take the opportunity to document (including an executable
 specification) both the Sphinx mix packet format, and SURBs (Single Use Reply Blocks).
 
-## Quick Start
+### Quick Start
+
+First (you normally only need to do this at most once):
 
 ```bash
-cabal update
-cabal build
+cabal update      # update the package directory
+```
+
+Then:
+
+```bash
+cabal clean       # start from a clean state
+cabal build       # build the library
+cabal repl        # read-eval-print loop
 ```
