@@ -25,6 +25,10 @@ source-repository head
   type:                git 
   location:            https://github.com/logos-storage/transport-over-mix
 
+flag plotting
+  description:         include support for built-in plotting
+  default:             True
+
 --------------------------------------------------------------------------------
 
 Library
@@ -61,6 +65,15 @@ Library
                         Crypto.X25519.DH
                         Crypto.Types
                         Data.Octets
+
+  if flag(plotting)
+
+    Build-Depends:        granite >= 0.7 && < 0.8,
+                          text >= 2.1 && < 3.0,
+                          base64 >= 1.0 && < 1.1
+
+    Exposed-Modules:      Simulate.Plots
+                          Simulate.Plots.ITerm2
 
   Default-Language:     Haskell2010
   Default-Extensions:   BangPatterns, NumericUnderscores
