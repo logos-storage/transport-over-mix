@@ -97,9 +97,10 @@ partitionLazyByteString m = go where
 -- doesn't receive enough data to reconstruct, we can simply send more parity chunks
 --
 data ChunkMeta = MkChunkMeta
-  { _cmSessionId   :: SessionId     -- ^ session id
-  , _cmMessageIdx  :: Word32        -- ^ message index within the session
-  , _cmNOrigChunks :: Word16        -- ^ K = number of chunks containing the original data
+  { _cmSessionId    :: SessionId     -- ^ session id
+  , _cmMessageIdx   :: Word32        -- ^ message index within the session
+  , _cmNOrigChunks  :: Word16        -- ^ K = number of chunks containing the original data
+  , _cmNTotalChunks :: Word16        -- ^ N = number total (redundant) chunks
   }
   deriving (Eq,Show)
 
@@ -141,6 +142,7 @@ putChunkMeta (MkChunkMeta{..}) = do
   putSessionId _cmSessionId 
   putWord32be  _cmMessageIdx 
   putWord16be  _cmNOrigChunks 
+  putWord16be  _cmNTotalChunks
 
 putSessionId :: SessionId -> Put
 putSessionId (MkSessionId bytes) = mapM_ putWord8 bytes
@@ -168,6 +170,7 @@ getChunkMeta :: Get ChunkMeta
 getChunkMeta = MkChunkMeta
   <$> getSessionId
   <*> getWord32be
+  <*> getWord16be
   <*> getWord16be
 
 getSessionId :: Get SessionId

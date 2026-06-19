@@ -81,7 +81,7 @@ Remark \#2: With X25519, not all scalar field elements are valid secret keys. Ho
 The key sequence is defined iteratively:
 
 - $x_0:=x$
-- $x_{i+1}:=\mathsf{mask}(b_i\cdot x_i)$
+- $x_{i+1}:=b_i\cdot x_i$
 
 All the rest can be computed from $x_i$:
 
@@ -97,7 +97,7 @@ Thus each hop can only decrypt their own header, and if they try to break the pr
 
 The size of the mix header must be constant (otherwise, mix nodes could guess where they are in the path), and its processing uniform (except for the final hop).
 
-With the usual parameters, we have $|\alpha|=32$ and $|\gamma|=16$. Thus $N_\beta:=|\beta|$ determines the header size. This must be big enough to fit $(r-1)$ mix node addresses $A_i$, and also $(r-1)$ MACs $\gamma_i$ (both are the set $i>0)$, and the destination address and message id pair $(\Delta,J)$.
+With the usual parameters, we have $|\alpha|=32$ and $|\gamma|=16$. Thus $N_\beta:=|\beta|$ determines the header size. This must be big enough to fit $(r-1)$ mix node addresses $A_i$ and MACs $\gamma_i$ (for $1\le i<r$), and the destination address and message id pair $(\Delta,J)$.
 
 In the original Sphinx paper, we have
 
