@@ -19,7 +19,7 @@ data SessionControl
   = InitialMessage AppProtocol          -- ^ the first message estabilishing a connection
   | Continue                            -- ^ proceed normally
   | CloseSession                        -- ^ closing down the session
-  deriving (Eq,Show,Enum)
+  deriving (Eq,Show)
 
 -- | Application layer protocol
 data AppProtocol = MkAppProtocol
@@ -31,29 +31,35 @@ data AppProtocol = MkAppProtocol
 data AckEntry
   = MsgReceived    MsgIdx               -- ^ message received intact
   | MsgFailed      MsgIdx FailReason    -- ^ message failed (eg. decoding, checksum or timeout)
-  | NeedMoreChunks MsgIdx Int           -- ^ we need more chunks 
-  | ResendChunks   MsgIdx [Int]         -- ^ re-transmit particular chunks
+  | NeedMoreChunks MsgIdx ChunkIdx      -- ^ we need more chunks 
+  | ResendChunks   MsgIdx [ChunkIdx]    -- ^ re-transmit particular chunks
   deriving (Eq,Show)
 
 data FailReason
   = FailTimeout             -- ^ couldn't decode within the expected time
   | FailDecode              -- ^ erasure code decoding failed
   | FailChecksum            -- ^ checksum failed
+  | NotYetImplemented       -- ^ we haven't implemented the feature
   deriving (Eq,Show,Enum)
 
 --------------------------------------------------------------------------------
 
-data MsgMeta = MkMsgMeta
-  { _msgControl   :: SessionControl   -- ^ where we are in the session
-  , _msgReqSURBs  :: Int              -- ^ how many more SURBs we need 
-  , _msgAcks      :: [AckEntry]       -- ^ status of previous messages
+data TransportVersion
+  = V1
+  deriving (Eq,Show,Enum)
+
+data TransportMeta = MkTransportMeta
+  { _transVersion   :: TransportVersion   -- ^ protocol version 
+  , _transControl   :: SessionControl     -- ^ where we are in the session
+  , _transReqSURBs  :: Int                -- ^ how many more SURBs we need 
+  , _transAcks      :: [AckEntry]         -- ^ status of previous messages
   }
   deriving (Eq,Show)
 
 data Message = MkMessage
-  { _msgMeta      :: MsgMeta          -- ^ message metadata
-  , _msgSURBs     :: [SURB]           -- ^ the new SURBs we send
-  , _msgPayload   :: ByteString       -- ^ the actual payload
+  { _msgMeta      :: TransportMeta     -- ^ transport layer metadata
+  , _msgSURBs     :: [SURB]            -- ^ the new SURBs we send
+  , _msgPayload   :: ByteString        -- ^ the actual payload
   }
   deriving Eq
 

@@ -54,13 +54,14 @@ chunkDataSize = netPayloadSize - chunkMetaSize
 -- partition into pieces, and prepare each chunk's metadata
 chunkMsgPayload :: SessionId -> MsgIdx -> ByteString -> Array Int Chunk
 chunkMsgPayload sessionId msgIdx msgPayload = arr where
-  padded = buildLazyByteString (putMsgPayload msgPayload)
-  m      = fromIntegral (L.length padded)
-  (k,0)  = divMod m chunkDataSize
-  nOrigs = fromIntegral k
-  pieces = partitionLazyByteString chunkDataSize padded
-  arr    = listArray (0,k-1) 
-             [ MkChunk (MkChunkMeta sessionId msgIdx nOrigs) i (L.toStrict dat) | (i,dat) <- zip [0..] pieces ]
+  padded  = buildLazyByteString (putMsgPayload msgPayload)
+  mSize   = fromIntegral (L.length padded)
+  (k,0)   = divMod mSize chunkDataSize
+  nOrigs  = fromIntegral k
+  nTotals = 0     -- hackety hack :'(
+  pieces  = partitionLazyByteString chunkDataSize padded
+  arr     = listArray (0,k-1) 
+              [ MkChunk (MkChunkMeta sessionId (fromIntegral msgIdx) nOrigs nTotals) i (L.toStrict dat) | (i,dat) <- zip [0..] pieces ]
 
 -- | Before chunking, we encoded message payloads by prepending their length (8 bytes), 
 -- and then padding with zero bytes. We need to reverse this after recovering from EC chunks

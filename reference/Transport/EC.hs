@@ -56,7 +56,7 @@ testEC = withLeopard $ do
 
   bad <- randomRIO (0,ecM+1)
   received <- catMaybes <$> maskListRandomly bad allChunks
-
+  
   -- putStrLn $ "chunks received:"
   -- forM_ received $ \chunk -> do
   --   putStrLn $ " - " ++ show chunk
@@ -175,14 +175,17 @@ decodeFromChunks chunks =
           Left  leoRes -> Left (LeopardError leoRes)
           Right arr    -> case parseMsgPayload (B.concat (elems arr)) of
             Nothing      -> Left  $ CannotParseMsg
-            Just bs      -> Right $ MkDecodedMessage sessionId msgIdx bs            
+            Just bs      -> Right $ MkDecodedMessage sessionId (fromIntegral msgIdx) bs            
 
       where
-        MkChunkMeta sessionId msgIdx ecK = meta
+        MkChunkMeta sessionId msgIdx ecK ecN = meta
         ecK_int  = fromIntegral ecK                 :: Int
-        ecp      = deterministicECParams ecK_int    :: ECParams
-        ecM_int  = _ecM ecp                         :: Int
-        ecN_int  = _ecN ecp                         :: Int
+        -- ecp      = deterministicECParams ecK_int    :: ECParams
+        -- ecM_int  = _ecM ecp                         :: Int
+        -- ecN_int  = _ecN ecp                         :: Int
+        ecN_int  = fromIntegral ecN                 :: Int
+        ecM_int  = ecN_int - ecK_int                :: Int
+        ecp      = ECParams { _ecK = ecK_int , _ecN = ecN_int }
         haveIdxs = map fst ibss                     :: [ChunkIdx]
         haveCnt  = length  haveIdxs                 :: Int
         minIdx   = minimum haveIdxs                 :: ChunkIdx

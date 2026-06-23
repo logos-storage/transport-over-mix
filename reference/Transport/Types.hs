@@ -16,7 +16,7 @@ import Data.Octets
 --------------------------------------------------------------------------------
 
 -- | Message index within a session
-type MsgIdx = Word32
+type MsgIdx = Int -- Word32
 
 -- | Chunk index within a chunked messages
 type ChunkIdx = Word16
@@ -26,7 +26,7 @@ type ChunkIdx = Word16
 -- | A (random) session identifier
 newtype SessionId
   = MkSessionId [Word8]
-  deriving (Eq)
+  deriving (Eq,Ord)
 
 instance Show SessionId where
   show (MkSessionId xs) = "<session_id = " ++ showHexBytes xs ++ ">"
