@@ -12,9 +12,16 @@ but otherwise pretty normally behaving network socket).
 Furthermore, we also take the opportunity to document (including an executable
 specification) both the Sphinx mix packet format, and SURBs (Single Use Reply Blocks).
 
+### Repo layout
+
+- `docs/`: specification and other documentation (eg. Sphinx)
+- `reference/`: Haskell reference implementation
+
 ### Quick Start
 
-First (you normally only need to do this at most once):
+Install Haskell and Cabal (preferably via `ghcup`).
+
+First time (you normally only need to do this at most once):
 
 ```bash
 cabal update      # update the package directory
